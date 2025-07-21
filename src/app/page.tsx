@@ -29,77 +29,17 @@ function pad(n: number) {
   return n.toString().padStart(2, "0");
 }
 
-function AnalogClock({ date }: { date: Date }) {
-  const size = 120;
-  const center = size / 2;
-  const radius = size / 2 - 8;
-  const hour = date.getHours() % 12;
-  const minute = date.getMinutes();
-  const second = date.getSeconds();
-  const hourAngle = (hour + minute / 60) * 30;
-  const minuteAngle = (minute + second / 60) * 6;
-  const secondAngle = second * 6;
-  return (
-    <svg width={size} height={size} className="drop-shadow-lg">
-      <circle
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="var(--background)"
-        stroke="var(--foreground)"
-        strokeWidth="4"
-      />
-      {[...Array(12)].map((_, i) => {
-        const angle = (i * 30 * Math.PI) / 180;
-        const x1 = center + Math.sin(angle) * (radius - 8);
-        const y1 = center - Math.cos(angle) * (radius - 8);
-        const x2 = center + Math.sin(angle) * (radius - 2);
-        const y2 = center - Math.cos(angle) * (radius - 2);
-        return (
-          <line
-            key={i}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="var(--foreground)"
-            strokeWidth={i % 3 === 0 ? 3 : 1}
-          />
-        );
-      })}
-      {/* Hour hand */}
-      <line
-        x1={center}
-        y1={center}
-        x2={center + Math.sin((hourAngle * Math.PI) / 180) * (radius * 0.5)}
-        y2={center - Math.cos((hourAngle * Math.PI) / 180) * (radius * 0.5)}
-        stroke="var(--foreground)"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
-      {/* Minute hand */}
-      <line
-        x1={center}
-        y1={center}
-        x2={center + Math.sin((minuteAngle * Math.PI) / 180) * (radius * 0.7)}
-        y2={center - Math.cos((minuteAngle * Math.PI) / 180) * (radius * 0.7)}
-        stroke="var(--foreground)"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      {/* Second hand */}
-      <line
-        x1={center}
-        y1={center}
-        x2={center + Math.sin((secondAngle * Math.PI) / 180) * (radius * 0.85)}
-        y2={center - Math.cos((secondAngle * Math.PI) / 180) * (radius * 0.85)}
-        stroke="#e11d48"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <circle cx={center} cy={center} r={4} fill="#e11d48" />
-    </svg>
-  );
+// Add imports for new components
+import DigitalClock from "./DigitalClock";
+import AnalogClock from "./AnalogClock";
+
+function getInitialDark() {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('wc_dark');
+    if (stored !== null) return stored === 'true';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  return false;
 }
 
 export default function Home() {
@@ -108,7 +48,27 @@ export default function Home() {
   const [is24h, setIs24h] = useState(false);
   const [font, setFont] = useState(fonts[0].className);
   const [now, setNow] = useState(() => getTime(new Date(), timezone));
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(getInitialDark);
+  const [mounted, setMounted] = useState(false);
+  const [digitalStyle, setDigitalStyle] = useState(0); // index for digital styles
+  const [analogStyle, setAnalogStyle] = useState(0); // index for analog styles
+  const digitalStyleNames = [
+    "Classic Modular",
+    "StandBy Flip",
+    "Liquid Glass",
+    "Minimalist Neon",
+    "Modern Glassmorphism"
+  ];
+  const analogStyleNames = [
+    "California Dial",
+    "StandBy Simple",
+    "Liquid Glass Analog"
+  ];
+  const [clockMode, setClockMode] = useState<'digital' | 'analog'>('digital');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -118,14 +78,60 @@ export default function Home() {
   }, [timezone]);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
+    if (dark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    if (mounted) {
+      localStorage.setItem("wc_dark", String(dark));
+    }
+  }, [dark, mounted]);
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const storedDark = localStorage.getItem("wc_dark");
+    const storedTimezone = localStorage.getItem("wc_timezone");
+    const storedIs24h = localStorage.getItem("wc_is24h");
+    const storedFont = localStorage.getItem("wc_font");
+    const storedDigitalStyle = localStorage.getItem("wc_digitalStyle");
+    const storedAnalogStyle = localStorage.getItem("wc_analogStyle");
+    const storedClockMode = localStorage.getItem("wc_clockMode");
+    if (storedDark !== null) setDark(storedDark === "true");
+    if (storedTimezone) setTimezone(storedTimezone);
+    if (storedIs24h !== null) setIs24h(storedIs24h === "true");
+    if (storedFont) setFont(storedFont);
+    if (storedDigitalStyle) setDigitalStyle(Number(storedDigitalStyle));
+    if (storedAnalogStyle) setAnalogStyle(Number(storedAnalogStyle));
+    if (storedClockMode) setClockMode(storedClockMode as 'digital' | 'analog');
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("wc_timezone", timezone);
+  }, [timezone]);
+  useEffect(() => {
+    localStorage.setItem("wc_is24h", String(is24h));
+  }, [is24h]);
+  useEffect(() => {
+    localStorage.setItem("wc_font", font);
+  }, [font]);
+  useEffect(() => {
+    localStorage.setItem("wc_digitalStyle", String(digitalStyle));
+  }, [digitalStyle]);
+  useEffect(() => {
+    localStorage.setItem("wc_analogStyle", String(analogStyle));
+  }, [analogStyle]);
+  useEffect(() => {
+    localStorage.setItem("wc_clockMode", clockMode);
+  }, [clockMode]);
 
   const hour = now.getHours();
   const minute = now.getMinutes();
   const second = now.getSeconds();
   const ampm = hour >= 12 ? "PM" : "AM";
   const displayHour = is24h ? hour : hour % 12 || 12;
+
+  if (!mounted) return null; // Prevents hydration mismatch
 
   return (
     <div className={`min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-sky-100 via-white to-emerald-100 dark:from-gray-900 dark:via-gray-950 dark:to-gray-800 transition-colors duration-500 ${font}`}>
@@ -135,31 +141,39 @@ export default function Home() {
           onClick={() => setShowSettings(true)}
           aria-label="Open settings"
         >
-          <svg width="28" height="28" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Zm7.94-2.06a1 1 0 0 0 .21 1.09l.06.06a1 1 0 0 1 0 1.42l-1.42 1.42a1 1 0 0 1-1.42 0l-.06-.06a1 1 0 0 0-1.09-.21 7.03 7.03 0 0 1-2.19.88 1 1 0 0 0-.78.97v.17a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-.17a1 1 0 0 0-.78-.97 7.03 7.03 0 0 1-2.19-.88 1 1 0 0 0-1.09.21l-.06.06a1 1 0 0 1-1.42 0l-1.42-1.42a1 1 0 0 1 0-1.42l.06-.06a1 1 0 0 0 .21-1.09 7.03 7.03 0 0 1-.88-2.19 1 1 0 0 0-.97-.78h-.17a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h.17a1 1 0 0 0 .97-.78 7.03 7.03 0 0 1 .88-2.19 1 1 0 0 0-.21-1.09l-.06-.06a1 1 0 0 1 0-1.42l1.42-1.42a1 1 0 0 1 1.42 0l.06.06a1 1 0 0 0 1.09.21 7.03 7.03 0 0 1 2.19-.88 1 1 0 0 0 .78-.97V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v.17a1 1 0 0 0 .78.97 7.03 7.03 0 0 1 2.19.88 1 1 0 0 0 1.09-.21l.06-.06a1 1 0 0 1 1.42 0l1.42 1.42a1 1 0 0 1 0 1.42l-.06.06a1 1 0 0 0-.21 1.09 7.03 7.03 0 0 1 .88 2.19 1 1 0 0 0 .97.78h.17a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-.17a1 1 0 0 0-.97.78 7.03 7.03 0 0 1-.88 2.19Z"></path></svg>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09c0 .66.38 1.26 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 8c.66 0 1.26.38 1.51 1H21a2 2 0 0 1 0 4h-.09c-.66 0-1.26.38-1.51 1z"/></svg>
         </button>
       </div>
       <div className="flex flex-col items-center gap-8 p-6 rounded-3xl shadow-2xl bg-white/70 dark:bg-black/40 backdrop-blur-md max-w-lg w-full">
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-center mb-2 drop-shadow-lg">World Clock</h1>
         <div className="flex flex-col sm:flex-row gap-8 items-center justify-center">
-          <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold mb-1">Digital</span>
-            <div className="text-5xl sm:text-6xl font-mono tracking-widest flex items-end gap-2">
-              {pad(displayHour)}:{pad(minute)}
-              <span className="text-3xl font-mono text-pink-600 animate-pulse">{second % 2 === 0 ? ":" : " "}</span>
-              {pad(second)}
-              {!is24h && (
-                <span className="ml-2 text-lg font-bold text-gray-500 dark:text-gray-400">{ampm}</span>
+          {clockMode === 'digital' ? (
+            <div className="flex flex-col items-center">
+              <span className="text-lg font-semibold mb-1">Digital</span>
+              <DigitalClock
+                hour={displayHour}
+                minute={minute}
+                second={second}
+                ampm={ampm}
+                is24h={is24h}
+                mounted={mounted}
+                styleIndex={digitalStyle}
+              />
+              <div className="text-lg mt-2 text-gray-700 dark:text-gray-300">
+                {mounted
+                  ? now.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+                  : null}
+              </div>
+              <div className="text-base mt-1 text-gray-500 dark:text-gray-400">{timezone.replace("_", " ")}</div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <span className="text-lg font-semibold mb-1">Analog</span>
+              {mounted && (
+                <AnalogClock date={now} styleIndex={analogStyle} />
               )}
             </div>
-            <div className="text-lg mt-2 text-gray-700 dark:text-gray-300">
-              {now.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-            </div>
-            <div className="text-base mt-1 text-gray-500 dark:text-gray-400">{timezone.replace("_", " ")}</div>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold mb-1">Analog</span>
-            <AnalogClock date={now} />
-          </div>
+          )}
         </div>
       </div>
       {/* Settings Overlay */}
@@ -210,22 +224,59 @@ export default function Home() {
                 </select>
               </label>
               <label className="flex items-center gap-3">
-                <span className="w-32">Dark Mode</span>
-                <input
-                  type="checkbox"
-                  checked={dark}
-                  onChange={e => setDark(e.target.checked)}
-                  className="w-5 h-5 accent-pink-600"
-                />
-                <span>{dark ? "On" : "Off"}</span>
+                <span className="w-32">Clock Mode</span>
+                <select
+                  className="flex-1 rounded px-2 py-1 border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
+                  value={clockMode}
+                  onChange={e => setClockMode(e.target.value as 'digital' | 'analog')}
+                >
+                  <option value="digital">Digital</option>
+                  <option value="analog">Analog</option>
+                </select>
               </label>
+              {clockMode === 'digital' && (
+                <label className="flex items-center gap-3">
+                  <span className="w-32">Digital Style</span>
+                  <select
+                    className="flex-1 rounded px-2 py-1 border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
+                    value={digitalStyle}
+                    onChange={e => setDigitalStyle(Number(e.target.value))}
+                  >
+                    {digitalStyleNames.map((name, i) => (
+                      <option key={i} value={i}>{name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {clockMode === 'analog' && (
+                <label className="flex items-center gap-3">
+                  <span className="w-32">Analog Style</span>
+                  <select
+                    className="flex-1 rounded px-2 py-1 border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
+                    value={analogStyle}
+                    onChange={e => setAnalogStyle(Number(e.target.value))}
+                  >
+                    {analogStyleNames.map((name, i) => (
+                      <option key={i} value={i}>{name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
           </div>
         </div>
       )}
-      <footer className="absolute bottom-4 left-0 w-full flex justify-center text-gray-500 dark:text-gray-400 text-sm z-10">
-        <span>
-          &copy; {new Date().getFullYear()} World Clock &mdash; <a href="https://github.com/developervijay7/worldclock" className="underline hover:text-pink-600">GitHub</a>
+      <footer className="absolute bottom-4 left-0 w-full flex flex-col items-center text-gray-500 dark:text-gray-400 text-sm z-10">
+        <span className="flex items-center gap-1">
+          &copy; {new Date().getFullYear()} World Clock &mdash;
+          <a href="https://github.com/developervijay7/worldclock" className="underline hover:text-pink-600 ml-1">GitHub</a>
+        </span>
+        <span className="flex items-center gap-1 mt-1">
+          Designed with
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="inline-block animate-pulse">
+            <path d="M12 21s-6.2-4.35-8.4-7.09C1.67 11.13 2.13 8.28 4.07 6.6c1.54-1.32 3.97-1.13 5.43.44L12 9.17l2.5-2.13c1.46-1.57 3.89-1.76 5.43-.44 1.94 1.68 2.4 4.53.47 7.31C18.2 16.65 12 21 12 21z" fill="#e11d48"/>
+          </svg>
+          by <a href="https://vijaygoswami.com" className="underline hover:text-pink-600 ml-1" target="_blank" rel="noopener noreferrer">Vijay Goswami</a>
         </span>
       </footer>
     </div>
